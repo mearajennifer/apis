@@ -8,6 +8,10 @@ from flask_debugtoolbar import DebugToolbarExtension
 app = Flask(__name__)
 app.secret_key = "SECRETSECRETSECRET"
 
+EVENTBRITE_TOKEN = os.environ.get('EVENTBRITE_TOKEN')
+
+EVENTBRITE_URL = "https://www.eventbriteapi.com/v3/"
+
 
 @app.route("/")
 def homepage():
@@ -46,17 +50,15 @@ def find_afterparties():
         # - (Make sure to save the JSON data from the response to the data
         #   variable so that it can display on the page as well.)
 
-        access_token = os.environ['EVENTBRITE_TOKEN']
         payload = {
-            'token': access_token,
+            'token': EVENTBRITE_TOKEN,
             'q': query,
             'sort_by': sort,
             'location.address': location,
             'location.within': distance
         }
 
-        url = 'https://www.eventbriteapi.com/v3/events/search/'
-        response = requests.get(url, params=payload)
+        response = requests.get(EVENTBRITE_URL + 'events/search/', params=payload)
         data = response.json()
         events = data['events']
 
@@ -95,16 +97,33 @@ def create_eventbrite_event():
     # - Make a request to the Eventbrite API to create a new event using the
     # form data and save the result in a variable called `json`.
     # - Flash add the created event's URL as a link to the success flash message
+    is_public = False
 
-    ##### UNCOMMENT THIS once you make your request! #####
-    # if response.ok:
-    #     flash("Your event was created!")
-    #     return redirect("/")
-    # else:
-    #     flash('OAuth failed: {}'.format(data['error_description']))
-    #     return redirect("/create-event")
+    headers = {'Authorization': 'Bearer ' + EVENTBRITE_TOKEN}
 
-    return redirect("/")
+    payload = {
+        'event.name.html': name,
+        'event.start.utc': start_time,
+        'event.start.timezone': timezone,
+        'event.end.utc': end_time,
+        'event.end.timezone': timezone,
+        'event.currency': currency,
+        'event.listed': is_public,
+    }
+
+    response = requests.post(EVENTBRITE_URL + "events/",
+                             data=payload,
+                             headers=headers)
+    data = response.json()
+
+    if response.ok:
+        flash("Your event was created!")
+        return redirect("/")
+    else:
+        flash('OAuth failed: {}'.format(data['error_description']))
+        return redirect("/create-event")
+
+    return redirect("/my-events.html")
 
 
 ############ Further Study ############
@@ -175,4 +194,4 @@ if __name__ == "__main__":
     app.debug = True
     app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
     DebugToolbarExtension(app)
-    app.run()
+    app.run(host='0.0.0.0')
